@@ -1,229 +1,82 @@
-#include "BluetoothSerial.h" //Header File for Serial Bluetooth, will be added by default into Arduino
 #include <EEPROM.h>
 
-#define LED_BUILTIN 2 
+#define STRING_ADDRESS 0      // Starting address for string in EEPROM
+#define MAX_STRING_LENGTH 32  // Maximum allowed string length
+
+char myString[MAX_STRING_LENGTH];
+
+#define LED_BUILTIN 2
 #include <WiFi.h>
 #include <DNSServer.h>
 
-
 const byte DNS_PORT = 53;
-IPAddress apIP(8,8,4,4); // The default android DNS
+IPAddress apIP(8, 8, 4, 4);  // The default android DNS
 DNSServer dnsServer;
 WiFiServer server(80);
+WiFiServer ssidName(8081);
 
-String responseHTML = """"
-"<!DOCTYPE html>\n"
-"<html>\n"
-"<body onload=\"myFunction()\">\n"
-"<!-- \n"
-"<h2>Redirect to a Webpage</h2>\n"
-"<p>The replace() method replaces the current document with a new one:</p>\n"
-"\n"
-"<button onclick=\"myFunction()\">Replace document</button> -->\n"
-"\n"
-"<script>\n"
-"function myFunction() {\n"
-"  location.replace(\"http://8.8.4.1:8080/index.html\")\n"
-"}\n"
-"</script>\n"
-"\n"
-"</body>\n"
-"</html> \n"
-"";
+String responseHTML = ""
+                      ""
+                      "<!DOCTYPE html>\n"
+                      "<html>\n"
+                      "<body onload=\"myFunction()\">\n"
+                      "<script>\n"
+                      "function myFunction() {\n"
+                      "  location.replace(\"http://8.8.4.1:8080/index.html\")\n"
+                      "}\n"
+                      "</script>\n"
+                      "</body>\n"
+                      "</html> \n"
+                      "";
 
-BluetoothSerial ESP_BT; //Object for Bluetooth
-String buffer_in;
-unsigned long previousMillis = 0; 
-byte val;       
-int addr = 0;
-byte indS=0;
-byte indP=0;
-String stream;
-byte len=0;
-String temp;
-String temp2;
-unsigned int interval=30000;
 
 
 void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  EEPROM.begin(50);
-  Serial.begin(9600); //Start Serial monitor in 9600
-  Serial.println("Bluetooth Device is Ready to Pair");
+  // EEPROM Begin
+  // EEPROM.begin(50);
 
-    Serial.println("Waiting For Wifi Updates 30 seconds");
-    ESP_BT.begin("SM-M215F"); //Name of your Bluetooth Signal
-
-while(!check_wifiUpdate()==true)
-{
+  // Initialize EEPROM with the maximum string length
+  if (!EEPROM.begin(MAX_STRING_LENGTH)) {
+    Serial.println("Failed to initialize EEPROM");
+    while (1)
+      ;  // Halt if EEPROM initialization fails
   }
 
+  // Read existing string from EEPROM (optional)
+  readStringFromEEPROM();
 
-    
-Serial.println("The Stored Wifi credetial are : ");
-for(int i=0;i<50;i++)
- {
-    val=EEPROM.read(i);
-    stream+=(char)val;
- 
-if((val==10) && (indS==0))
-{
-  indS=i;
-//Serial.println("indS"+(String)i);
+
+
+
+  // char ssid[] = "Wifi SSID";
+
+
+  // WiFi.mode(WIFI_AP);
+  // WiFi.softAP(ssid);
+  // Serial.println(ssid);
+  // WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+  // // if DNSServer is started with "*" for domain name, it will reply with
+  // // provided IP to all DNS request
+  // dnsServer.start(DNS_PORT, "*", apIP);
+
+  // server.begin();
+  // ssidName.begin();
+  // put your setup code here, to run once:
 }
-  else if(val==10 && indP==0)
-  {
-    indP=i;
-    break;
-//Serial.println("indP"+(String)i);
-  }
-}
-
-
-// Serial.println(stream);
-// Serial.println("Stream Ended");
- temp=stream.substring(0,indS);
- temp=temp.substring(5,indS);
-
-
-//ssid2=ssid;
-temp2=stream.substring(indS+1,indP);
-temp2=temp2.substring(5,indP-indS);
-
-
-
-  
-
-
-int i=temp.length();
-int j=temp2.length();
-char ssid[i];
-char pass[j]; 
-temp.toCharArray(ssid,i);
-temp2.toCharArray(pass,j);
-
-
-
-  Serial.println("Stored SSID");
-  Serial.println(ssid);
-    Serial.println("Stored PASS");
-  Serial.println(pass);
-
-
-// WiFi.mode(WIFI_STA);
-// WiFi.begin(ssid, pass);
-
-
-
-WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid);
-  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-
-  
-
-  // if DNSServer is started with "*" for domain name, it will reply with
-  // provided IP to all DNS request
-  dnsServer.start(DNS_PORT, "*", apIP);
-
-  server.begin();
-
-  // if (WiFi.waitForConnectResult() != WL_CONNECTED) 
-  // {
-  //       Serial.println("WiFi Failed");
-  //       while(1) {
-  //           delay(1000);
-  //       }
-  // }
-  //   else 
-  //   {
-  //     Serial.print("Wifi Connected to ");
-  //     Serial.println(ssid);
-
-  //   }
-}
-
-
-
-boolean check_wifiUpdate()
-{
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - previousMillis >= interval) 
-  {
-    previousMillis = currentMillis;
-   
-
-    Serial.println("30 Seconds Over");
-
-    return true;
-  }
-
-  else if (ESP_BT.available()) //Check if we receive anything from Bluetooth
-  {
-    interval=50000;
-    buffer_in = ESP_BT.readStringUntil('\n'); //Read what we recevive 
-    //Serial.println("Received:"); Serial.println(buffer_in);
-    delay(20);
- 
-
-  if(buffer_in.charAt(0)=='S')
-  {
-    for(int i=0;i<buffer_in.length();i++)
-    {
-      val=(byte)(buffer_in.charAt(i));
-      //Serial.println("val "+val);
-
-      EEPROM.write(addr, val);
-      //Serial.println(val);
-      addr++;
-    }
-    //Serial.print("New ");
-    //Serial.print(buffer_in);
-    EEPROM.write(addr, 10);
-    addr++;
-    EEPROM.commit();     
-    ESP_BT.println("SSID Stored");
-  }
-
-    else if(buffer_in.charAt(0)=='P')
-    {
-      for(int i=0;i<buffer_in.length();i++)
-      {
-        val=(byte)(buffer_in.charAt(i));
-        //Serial.println("val "+val);
-        EEPROM.write(addr, val);
-        //Serial.println(val);
-        addr++;
-      
-      }
-      //Serial.print("New ");
-      //Serial.print(buffer_in);
-      EEPROM.write(addr, 10);
-      EEPROM.commit();  
-      ESP_BT.println("Password Stored"); 
-      return true;
-    }  
- 
-    return false;
-  }
-
-  else
-  { 
-    return false;
-  }
-}
-  
-
-
 
 void loop() {
 
   pinMode(LED_BUILTIN, OUTPUT);
 
-  
+  //digitalWrite(LED_BUILTIN, HIGH);
+  // put your main code here, to run repeatedly:
   dnsServer.processNextRequest();
-  WiFiClient client = server.available();   // listen for incoming clients
+  WiFiClient client = server.available();  // listen for incoming clients
 
   if (client) {
     String currentLine = "";
@@ -249,4 +102,158 @@ void loop() {
   }
 
 
+  WiFiClient ssidClient = ssidName.available();  // listen for incoming clients
+
+  if (ssidClient) {                   // if you get a client,
+    Serial.println("New Client.");    // print a message out the serial port
+    String currentLine = "";          // make a String to hold incoming data from the client
+    while (ssidClient.connected()) {  // loop while the client's connected
+      if (ssidClient.available()) {   // if there's bytes to read from the client,
+        char c = ssidClient.read();   // read a byte, then
+        // Serial.write(c);              // print it out the serial monitor
+        if (c == '\n') {  // if the byte is a newline character
+
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            ssidClient.println("HTTP/1.1 200 OK");
+            ssidClient.println("Content-type:text/html");
+            ssidClient.println();
+
+            // the content of the HTTP response follows the header:
+            ssidClient.print(" <a href=\"/\">Refresh</a> <br>");
+            ssidClient.print("<center><form><input type='text' name='ssid' placeholder='Enter SSID' height='40px' width='40%' required> <br><br>");
+            ssidClient.print("<input type='submit' name='update' value='UPDATE' height='40px' width='40%'> </form><br><br></center>");
+
+            ssidClient.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
+            ssidClient.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
+
+            // The HTTP response ends with another blank line:
+            ssidClient.println();
+            // break out of the while loop:
+            break;
+          } else {  // if you got a newline, then clear currentLine:
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+        // Serial.println(currentLine);
+        // Check to see if the client request was "GET /H" or "GET /L":
+        if (currentLine.endsWith("GET /H")) {
+          digitalWrite(LED_BUILTIN, HIGH);  // GET /H turns the LED on
+          Serial.println(currentLine);
+        }
+        if (currentLine.endsWith("GET /L")) {
+          digitalWrite(LED_BUILTIN, LOW);  // GET /L turns the LED off
+          Serial.println(currentLine);
+        }
+        if (currentLine.endsWith("GET /Reset")) {
+          digitalWrite(LED_BUILTIN, LOW);  // GET /L turns the LED off
+          Serial.println(currentLine);
+        }
+        if (currentLine.endsWith("&update=UPDATE")) {
+          String s = currentLine;
+          // s.replace("http://8.8.4.4:8081/?ssid=", "");
+          s.replace("GET /?ssid=", "");
+          s.replace("&update=UPDATE", "");
+          s.replace("+", " ");
+
+
+
+
+          String sentence = s;
+          
+          Serial.println(sentence.length());
+
+
+          if(sentence.length() <  MAX_STRING_LENGTH - 1){
+            for (int i = sentence.length(); i < (MAX_STRING_LENGTH -1); i++) {
+              sentence.concat(" ");
+            }
+          }
+
+          // Example string to write
+          String dataToWrite = sentence;
+
+
+
+          // Check if string length exceeds limit
+          if (dataToWrite.length() > MAX_STRING_LENGTH - 1) {
+            Serial.println("String too long for EEPROM!");
+            return;
+          }
+
+          // Convert string to null-terminated character array
+          dataToWrite.toCharArray(myString, MAX_STRING_LENGTH);
+
+          
+
+          // Write string to EEPROM character by character
+          for (int i = 0; i < dataToWrite.length(); i++) {
+            EEPROM.write(STRING_ADDRESS + i, myString[i]);
+          }
+
+          // Commit the write operation (important!)
+          EEPROM.commit();
+          Serial.println("String written to EEPROM");
+          delay(5000);
+
+          // Read string from EEPROM and print it
+          readStringFromEEPROM();
+          delay(5000);
+
+          Serial.println("[*]");
+          Serial.println(sentence);
+          // EEPROM.writeString(address, sentence);
+        }
+      }
+    }
+    // close the connection:
+    ssidClient.stop();
+    Serial.println("Client Disconnected.");
+  }
+}
+
+
+// AP Setup
+void readStringFromEEPROM() {
+  char tempString[MAX_STRING_LENGTH];
+
+  // Read characters from EEPROM
+  for (int i = 0; i < MAX_STRING_LENGTH; i++) {
+    tempString[i] = EEPROM.read(STRING_ADDRESS + i);
+
+    // Check for null terminator (end of string)
+    if (tempString[i] == '\0') {
+      break;
+    }
+  }
+
+  // Print the retrieved string
+  Serial.print("String read from EEPROM: ");
+  Serial.println(tempString);
+
+  // Wifi AP
+  String ssid;
+  if (tempString == "") {
+    ssid = "Wifi SSID";
+  } else {
+    ssid = tempString;
+  }
+
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid);
+  Serial.println(ssid);
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+  // if DNSServer is started with "*" for domain name, it will reply with
+  // provided IP to all DNS request
+  dnsServer.start(DNS_PORT, "*", apIP);
+
+  server.begin();
+  ssidName.begin();
 }
